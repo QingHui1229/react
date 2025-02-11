@@ -7,7 +7,7 @@
  * @noflow
  * @nolint
  * @preventMunge
- * @generated SignedSource<<1e222e3d7bcc540b6e36536a0d3e4ba1>>
+ * @generated SignedSource<<4b24c92afcdb25929254bfa3a9b0f8da>>
  */
 
 "use strict";
@@ -22,12 +22,17 @@ __DEV__ &&
         _key2++
       )
         args[_key2 - 1] = arguments[_key2];
-      _len2 = format;
-      ReactSharedInternals.getCurrentStack &&
-        ((_key2 = ReactSharedInternals.getCurrentStack()),
-        "" !== _key2 && ((_len2 += "%s"), (args = args.concat([_key2]))));
-      args.unshift(_len2);
-      Function.prototype.apply.call(console.error, console, args);
+      if (enableRemoveConsolePatches) {
+        var _console2;
+        (_console2 = console).error.apply(_console2, [format].concat(args));
+      } else
+        (_len2 = format),
+          enableRemoveConsolePatches ||
+            (ReactSharedInternals.getCurrentStack &&
+              ((_key2 = ReactSharedInternals.getCurrentStack()),
+              "" !== _key2 && ((_len2 += "%s"), (args = args.concat([_key2])))),
+            args.unshift(_len2),
+            Function.prototype.apply.call(console.error, console, args));
     }
     function getComponentNameFromType(type) {
       if (null == type) return null;
@@ -348,7 +353,7 @@ __DEV__ &&
       if ("object" === typeof type)
         switch (type.$$typeof) {
           case REACT_FORWARD_REF_TYPE:
-            return (type = describeNativeComponentFrame(type.render, !1)), type;
+            return describeNativeComponentFrame(type.render, !1);
           case REACT_MEMO_TYPE:
             return describeUnknownElementTypeFrameInDEV(type.type);
           case REACT_LAZY_TYPE:
@@ -359,6 +364,21 @@ __DEV__ &&
             } catch (x) {}
         }
       return "";
+    }
+    function getTaskName(type) {
+      if (type === REACT_FRAGMENT_TYPE) return "<>";
+      if (
+        "object" === typeof type &&
+        null !== type &&
+        type.$$typeof === REACT_LAZY_TYPE
+      )
+        return "<...>";
+      try {
+        var name = getComponentNameFromType(type);
+        return name ? "<" + name + ">" : "<...>";
+      } catch (x) {
+        return "<...>";
+      }
     }
     function getOwner() {
       var dispatcher = ReactSharedInternals.A;
@@ -396,7 +416,16 @@ __DEV__ &&
       componentName = this.props.ref;
       return void 0 !== componentName ? componentName : null;
     }
-    function ReactElement(type, key, self, source, owner, props) {
+    function ReactElement(
+      type,
+      key,
+      self,
+      source,
+      owner,
+      props,
+      debugStack,
+      debugTask
+    ) {
       self = props.ref;
       type = {
         $$typeof: REACT_ELEMENT_TYPE,
@@ -424,6 +453,19 @@ __DEV__ &&
         writable: !0,
         value: null
       });
+      enableOwnerStacks &&
+        (Object.defineProperty(type, "_debugStack", {
+          configurable: !1,
+          enumerable: !1,
+          writable: !0,
+          value: debugStack
+        }),
+        Object.defineProperty(type, "_debugTask", {
+          configurable: !1,
+          enumerable: !1,
+          writable: !0,
+          value: debugTask
+        }));
       Object.freeze && (Object.freeze(type.props), Object.freeze(type));
       return type;
     }
@@ -433,9 +475,12 @@ __DEV__ &&
       maybeKey,
       isStaticChildren,
       source,
-      self
+      self,
+      debugStack,
+      debugTask
     ) {
       if (
+        enableOwnerStacks ||
         "string" === typeof type ||
         "function" === typeof type ||
         type === REACT_FRAGMENT_TYPE ||
@@ -536,10 +581,21 @@ __DEV__ &&
             ? type.displayName || type.name || "Unknown"
             : type
         );
-      return ReactElement(type, children, self, source, getOwner(), maybeKey);
+      return ReactElement(
+        type,
+        children,
+        self,
+        source,
+        getOwner(),
+        maybeKey,
+        debugStack,
+        debugTask
+      );
     }
     function validateChildKeys(node, parentType) {
-      if (
+      if (enableOwnerStacks)
+        isValidElement(node) && node._store && (node._store.validated = 1);
+      else if (
         "object" === typeof node &&
         node &&
         node.$$typeof !== REACT_CLIENT_REFERENCE
@@ -575,6 +631,7 @@ __DEV__ &&
     }
     function validateExplicitKey(element, parentType) {
       if (
+        !enableOwnerStacks &&
         element._store &&
         !element._store.validated &&
         null == element.key &&
@@ -620,6 +677,8 @@ __DEV__ &&
       return info;
     }
     var React = require("react"),
+      dynamicFlagsUntyped = require("ReactNativeInternalFeatureFlags"),
+      enableOwnerStacks = dynamicFlagsUntyped.enableOwnerStacks,
       REACT_ELEMENT_TYPE = Symbol.for("react.element"),
       REACT_PORTAL_TYPE = Symbol.for("react.portal"),
       REACT_FRAGMENT_TYPE = Symbol.for("react.fragment"),
@@ -637,6 +696,8 @@ __DEV__ &&
       MAYBE_ITERATOR_SYMBOL = Symbol.iterator,
       ReactSharedInternals =
         React.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,
+      enableRemoveConsolePatches =
+        dynamicFlagsUntyped && dynamicFlagsUntyped.enableRemoveConsolePatches,
       REACT_CLIENT_REFERENCE$2 = Symbol.for("react.client.reference"),
       hasOwnProperty = Object.prototype.hasOwnProperty,
       assign = Object.assign,
@@ -658,15 +719,39 @@ __DEV__ &&
       "function" === typeof WeakMap ? WeakMap : Map
     )();
     var REACT_CLIENT_REFERENCE = Symbol.for("react.client.reference"),
+      createTask =
+        enableOwnerStacks && console.createTask
+          ? console.createTask
+          : function () {
+              return null;
+            },
       specialPropKeyWarningShown;
     var didWarnAboutElementRef = {};
     var didWarnAboutKeySpread = {},
       ownerHasKeyUseWarning = {};
     exports.Fragment = REACT_FRAGMENT_TYPE;
     exports.jsx = function (type, config, maybeKey, source, self) {
-      return jsxDEVImpl(type, config, maybeKey, !1, source, self);
+      return jsxDEVImpl(
+        type,
+        config,
+        maybeKey,
+        !1,
+        source,
+        self,
+        enableOwnerStacks ? Error("react-stack-top-frame") : void 0,
+        enableOwnerStacks ? createTask(getTaskName(type)) : void 0
+      );
     };
     exports.jsxs = function (type, config, maybeKey, source, self) {
-      return jsxDEVImpl(type, config, maybeKey, !0, source, self);
+      return jsxDEVImpl(
+        type,
+        config,
+        maybeKey,
+        !0,
+        source,
+        self,
+        enableOwnerStacks ? Error("react-stack-top-frame") : void 0,
+        enableOwnerStacks ? createTask(getTaskName(type)) : void 0
+      );
     };
   })();

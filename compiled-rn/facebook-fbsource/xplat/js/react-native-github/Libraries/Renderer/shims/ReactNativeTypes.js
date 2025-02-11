@@ -7,10 +7,12 @@
  * @noformat
  * @nolint
  * @flow strict
- * @generated SignedSource<<9cf3e28d6ca0299bc0bb5caa75b19556>>
+ * @generated SignedSource<<c1ce40ef01008fe3cd38df1d9ff46f56>>
  */
 
 import type {ElementRef, ElementType, MixedElement} from 'react';
+// $FlowFixMe[nonstrict-import] TODO(@rubennorte)
+import {type PublicRootInstance} from 'react-native/Libraries/ReactPrivate/ReactNativePrivateInterface';
 
 export type MeasureOnSuccessCallback = (
   x: number,
@@ -133,9 +135,10 @@ declare const ensureNativeMethodsAreSynced: NativeMethods;
 (ensureNativeMethodsAreSynced: INativeMethods);
 
 export type HostInstance = NativeMethods;
-/*::
-export type HostComponent<Config: {...}> = component(ref: React$RefSetter<HostInstance>, ...Config);
-*/
+export type HostComponent<Config: {...}> = component(
+  ref: React$RefSetter<HostInstance>,
+  ...Config
+);
 
 type InspectorDataProps = $ReadOnly<{
   [propName: string]: string,
@@ -206,9 +209,7 @@ export type ReactNativeType = {
     componentOrHandle: ?(ElementRef<TElementType> | number),
   ): ?number,
   isChildPublicInstance(
-    // eslint-disable-next-line no-undef
     parent: PublicInstance | HostComponent<empty>,
-    // eslint-disable-next-line no-undef
     child: PublicInstance | HostComponent<empty>,
   ): boolean,
   dispatchCommand(
@@ -262,6 +263,7 @@ export type ReactFabricType = {
   getPublicInstanceFromInternalInstanceHandle(
     internalInstanceHandle: InternalInstanceHandle,
   ): PublicInstance | PublicTextInstance | null,
+  getPublicInstanceFromRootTag(rootTag: number): PublicRootInstance | null,
   ...
 };
 
